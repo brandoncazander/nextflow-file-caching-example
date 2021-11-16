@@ -2,26 +2,41 @@
 nextflow.enable.dsl=2
 
 process foo {
-    tag "${name}"
-    echo true
     cpus 1
     memory 500.MB
     container "opensuse/leap:latest"
-    cache 'lenient'
     input:
-        val(name)
-        path(template_file)
+        path input_files
     output:
-        path("${name}.txt")
+        path "files/*.txt", emit: files
     """
-    sha1sum ${template_file}
-    cat ${template_file} > ${name}.txt
-    echo ${name} >> ${name}.txt
+    mkdir files/
+    cp ${input_files} files/
+    """
+}
+
+process bar {
+    cpus 1
+    memory 500.MB
+    container "opensuse/leap:latest"
+    input:
+        path collected_file
+    output:
+        path "${collected_file}.md5"
+    """
+    md5sum ${collected_file} > ${collected_file}.md5
     """
 }
 
 workflow {
-    names = Channel.from(['Riri', 'Fifi', 'Loulou'])
-    template_file = file("${baseDir}/assets/template.txt")
-    foo(names, template_file)
+    inputs = Channel.fromPath("${baseDir}/assets/input/*.txt")
+    groups_of_names = inputs.collate(2)
+    foo(groups_of_names)
+    foo.out
+        .collect()
+        .flatten()
+        .collectFile(name: 'foo.txt', storeDir: params.publish_dir)
+        .set { collected_file }
+
+    bar(collected_file)
 }
