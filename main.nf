@@ -35,6 +35,8 @@ workflow {
     foo.out
         .collect()
         .flatten()
+        .toSortedList()
+        .flatten()
         .collectFile(name: 'foo.txt', storeDir: params.publish_dir)
         .set { collected_file }
 
